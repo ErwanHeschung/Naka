@@ -1,0 +1,55 @@
+# --- Python & Environment ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+.env
+.python-version
+
+# --- UV (Package Manager) ---
+# We keep pyproject.toml and uv.lock, but ignore the tool's internal cache
+.uv/
+
+# --- AI Models & Data ---
+# If you download Whisper or Llama models locally, don't commit them
+models/
+*.bin
+*.gguf
+*.onnx
+.cache/
+
+# --- Audio & Logs ---
+# Temporary audio buffers or debug recordings
+*.wav
+*.mp3
+logs/
+*.log
+
+# --- IDEs & Editors ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- OS Specific ---
+.DS_Store
+Thumbs.db
+
+# --- Hardware / Build ---
+# If you ever compile C++ extensions or use Cython
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
