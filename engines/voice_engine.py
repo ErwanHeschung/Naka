@@ -1,4 +1,6 @@
 import sounddevice as sd
+import threading
+import queue
 from kokoro_onnx import Kokoro
 from configs.config_manager import config
 from utils.logger import log
@@ -15,22 +17,31 @@ class VoiceEngine:
         except Exception as e:
             log.error(f"Failed to load Kokoro: {e}")
             self.kokoro = None
+            return
+
+        self.speech_queue = queue.Queue()
+        self.stop_event = threading.Event()
+        
+        self.worker_thread = threading.Thread(target=self._speech_worker, daemon=True)
+        self.worker_thread.start()
 
     def speak(self, text: str):
-        if not self.kokoro or not text:
-            return
-            
-        try:
-            log.debug(f"Synthesizing: {text[:30]}...")
-            samples, sample_rate = self.kokoro.create(
-                text, 
-                voice=self.voice, 
-                speed=1.0, 
-                lang="en-us"
-            )
-            
-            sd.play(samples, sample_rate)
-            sd.wait()
-            
-        except Exception as e:
-            log.error(f"TTS Synthesis Error: {e}")
+        """Just adds text to the queue and returns immediately."""
+        if text.strip():
+            self.speech_queue.put(text)
+
+    def _speech_worker(self):
+        """Runs in the background, speaking everything in the queue."""
+        while not self.stop_event.is_set():
+            try:
+                text = self.speech_queue.get(timeout=1)
+                
+                samples, sample_rate = self.kokoro.create(
+                    text, voice=self.voice, speed=1.1, lang="en-us"
+                )
+                
+                sd.play(samples, sample_rate)
+                sd.wait() 
+                self.speech_queue.task_done()
+            except queue.Empty:
+                continue

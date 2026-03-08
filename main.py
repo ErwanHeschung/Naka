@@ -21,19 +21,18 @@ def main():
     assistant = AssistantOrchestrator(reg)
 
     while True:
-        user_text = ears.listen()
+        user_input = ears.listen() 
         
-        if user_text:
-            log.debug(f"You said: {user_text}")
-            
-            if "exit" in user_text.lower():
-                voice.speak("Goodbye!")
-                break
-            
-            response = assistant.query(user_text)
-            
-            print(f"Assistant: {response}")
-            voice.speak(response)
+        if user_input:
+            sentence_buffer = ""
+            for chunk in assistant.query(user_input):
+                token = chunk.get('response', '')
+                sentence_buffer += token
+                
+                if any(punct in token for punct in [".", "!", "?", "\n"]):
+                    if sentence_buffer.strip():
+                        voice.speak(sentence_buffer.strip())
+                        sentence_buffer = ""
 
 if __name__ == "__main__":
     main()

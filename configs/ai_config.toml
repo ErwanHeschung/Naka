@@ -1,6 +1,6 @@
 [assistant]
 name = "Naka"
-wake_word = "Naka"
+wake_word = "naka"
 language = "en-US"
 
 [personality]
@@ -15,4 +15,4 @@ instructions = """
 [model]
 name = "llama3.2:latest"
 temperature = 0.7
-max_tokens = 500
+max_tokens = 100

@@ -35,28 +35,31 @@ class AssistantOrchestrator:
     def query(self, user_text: str):
         try:
             if not self._check_model_availability():
-                return f"Error: Model {self.model_name} not found in Ollama."
+                yield {"response": f"Error: Model {self.model_name} not found."}
+                return
 
-            response = self.client.generate(
+            stream = self.client.generate(
                 model=self.model_name,
                 system=self._build_system_prompt(),
                 prompt=user_text,
                 options={
                     "temperature": self.config.ai['model']['temperature'],
-                    "num_predict": self.config.ai['model']['max_tokens']
-                }
+                    "num_predict": self.config.ai['model']['max_tokens'],
+                },
+                stream=True
             )
             
-            raw_output = getattr(response, 'response', response.get('response', ""))
+            full_response = ""
+            for chunk in stream:
+                token = chunk.get('response', '')
+                full_response += token
+                yield chunk 
 
             try:
-                data = json.loads(raw_output.strip())
-                if "function" in data:
-                    return self.registry.dispatch(data['function'], data['params'])
+                if "{" in full_response and "}" in full_response:
+                    pass
             except json.JSONDecodeError:
-                pass 
-                
-            return raw_output
+                pass
 
         except Exception as e:
-            return f"Orchestrator Error: {type(e).__name__} - {str(e)}"
+            yield {"response": f"Error: {str(e)}"}

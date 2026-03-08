@@ -3,7 +3,6 @@ host = "http://127.0.0.1:11434"
 
 [audio]
 input_device = 4
-sample_rate = 16000
 language = "en"
 
 [voice]
