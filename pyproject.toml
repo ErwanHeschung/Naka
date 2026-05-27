@@ -5,17 +5,14 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    # Gemini Live — replaces faster-whisper + ollama + kokoro-onnx
     "google-genai>=1.16.0",
-    # Wake word detection (on-device, lightweight)
     "openwakeword>=0.4.0",
-    # Audio I/O
     "sounddevice>=0.5.5",
-    # Utilities
     "numpy>=1.26.0",
     "pydantic>=2.12.5",
     "psutil>=7.2.2",
     "python-dotenv>=1.0.0",
+    "requests>=2.32.0",
 ]
 
 [tool.uv.workspace]

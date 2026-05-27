@@ -37,9 +37,16 @@ class AudioConfig(BaseModel):
     inactivity_timeout: float = 15.0
 
 
+class SpotifyConfig(BaseModel):
+    client_id: str = ""
+    client_secret: str = ""
+    refresh_token: str = ""
+
+
 class InfraConfig(BaseModel):
-    gemini: GeminiConfig = Field(default_factory=GeminiConfig)
-    audio: AudioConfig = Field(default_factory=AudioConfig)
+    gemini:  GeminiConfig  = Field(default_factory=GeminiConfig)
+    audio:   AudioConfig   = Field(default_factory=AudioConfig)
+    spotify: SpotifyConfig = Field(default_factory=SpotifyConfig)
 
 
 class ConfigManager:
@@ -62,9 +69,20 @@ class ConfigManager:
         self.ai = AIConfig(**self._load_toml(base_dir / "ai_config.toml"))
 
         raw_infra = self._load_toml(base_dir / "infra_config.toml")
+
         raw_infra.setdefault("gemini", {})
         if not raw_infra["gemini"].get("api_key"):
             raw_infra["gemini"]["api_key"] = os.environ.get("GEMINI_API_KEY", "")
+
+        raw_infra.setdefault("spotify", {})
+        for key, env_var in (
+            ("client_id",     "SPOTIFY_CLIENT_ID"),
+            ("client_secret", "SPOTIFY_CLIENT_SECRET"),
+            ("refresh_token", "SPOTIFY_REFRESH_TOKEN"),
+        ):
+            if not raw_infra["spotify"].get(key):
+                raw_infra["spotify"][key] = os.environ.get(env_var, "")
+
         self.infra = InfraConfig(**raw_infra)
 
     @staticmethod
