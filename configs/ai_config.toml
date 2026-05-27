@@ -2,6 +2,8 @@
 name = "Naka"
 wake_word = "naka"
 language = "en-US"
+gemini_voice = "Puck"
+wake_word_threshold = 0.6
 
 [personality]
 role = "A professional and efficient home automation specialist."
@@ -11,8 +13,3 @@ instructions = """
 - If a command is executed successfully, give a brief confirmation.
 - If an error occurs, explain it simply without showing raw code.
 """
-
-[model]
-name = "llama3.2:latest"
-temperature = 0.7
-max_tokens = 100

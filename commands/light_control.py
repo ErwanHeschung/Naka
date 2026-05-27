@@ -1,24 +1,44 @@
+from typing import Any
 from commands.base_command import BaseCommand, CommandArguments
 
+_AUTHORIZED_ROOMS = ["kitchen", "bedroom", "living_room"]
+
+
 class LightControl(BaseCommand):
+
     @property
     def name(self) -> str:
         return "light_control"
 
     @property
     def description(self) -> str:
-        return "Controls smart lights in the house. Parameters: 'room' (string), 'action' (on/off)."
+        return "Turn a smart light on or off in a specific room."
+
+    @property
+    def parameters_schema(self) -> dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "room": {
+                    "type": "string",
+                    "enum": _AUTHORIZED_ROOMS,
+                    "description": "The room whose light to control.",
+                },
+                "action": {
+                    "type": "string",
+                    "enum": ["on", "off"],
+                    "description": "Turn the light on or off.",
+                },
+            },
+            "required": ["room", "action"],
+        }
 
     def execute(self, cmd_args: CommandArguments) -> str:
-        # Accessing validated arguments
-        room = cmd_args.args.get("room")
+        room   = cmd_args.args.get("room")
         action = cmd_args.args.get("action")
-        
-        # Security Guardrail: White-listing rooms
-        authorized_rooms = ["kitchen", "bedroom", "living_room"]
-        if room not in authorized_rooms:
-            return f"Access Denied: I am not allowed to control lights in the {room}."
 
-        # Logic for hardware interaction would go here
-        print(f"[Hardware Log] Switching {room} light to {action}")
-        return f"Successfully turned {action} the light in the {room}."
+        if room not in _AUTHORIZED_ROOMS:
+            return f"Access denied: cannot control lights in '{room}'."
+
+        print(f"[Hardware] {room} light → {action}")
+        return f"Turned {action} the light in the {room}."

@@ -1,38 +1,25 @@
-from registry import CommandRegistry
-from orchestrator import AssistantOrchestrator
+import asyncio
+
 from commands.light_control import LightControl
 from commands.system_info import SystemInfo
-from utils.logger import log
+from commands.weather import Weather
 from configs.config_manager import config
-from engines.voice_engine import VoiceEngine
-from engines.ear_engine import EarEngine
+from engines.gemini_live_engine import GeminiLiveEngine
+from registry import CommandRegistry
+from utils.logger import log
 
-def main():
-    log.info(f"Starting {config.ai['assistant']['name']}")
-    log.info(f"Ollama Target: {config.infra['ollama']['host']}")
-    
-    voice = VoiceEngine()
-    ears = EarEngine()
-    
+
+async def main() -> None:
+    log.info(f"Starting {config.ai.assistant.name}")
+
     reg = CommandRegistry()
     reg.register(LightControl())
     reg.register(SystemInfo())
-    
-    assistant = AssistantOrchestrator(reg)
+    reg.register(Weather())
 
-    while True:
-        user_input = ears.listen() 
-        
-        if user_input:
-            sentence_buffer = ""
-            for chunk in assistant.query(user_input):
-                token = chunk.get('response', '')
-                sentence_buffer += token
-                
-                if any(punct in token for punct in [".", "!", "?", "\n"]):
-                    if sentence_buffer.strip():
-                        voice.speak(sentence_buffer.strip())
-                        sentence_buffer = ""
+    engine = GeminiLiveEngine(reg)
+    await engine.run()
+
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
