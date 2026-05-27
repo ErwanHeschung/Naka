@@ -1,8 +1,5 @@
 import asyncio
 
-from commands.light_control import LightControl
-from commands.system_info import SystemInfo
-from commands.weather import Weather
 from configs.config_manager import config
 from engines.gemini_live_engine import GeminiLiveEngine
 from registry import CommandRegistry
@@ -13,9 +10,7 @@ async def main() -> None:
     log.info(f"Starting {config.ai.assistant.name}")
 
     reg = CommandRegistry()
-    reg.register(LightControl())
-    reg.register(SystemInfo())
-    reg.register(Weather())
+    reg.discover()
 
     engine = GeminiLiveEngine(reg)
     await engine.run()

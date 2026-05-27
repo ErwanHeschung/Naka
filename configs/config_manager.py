@@ -10,7 +10,7 @@ class AssistantConfig(BaseModel):
     name: str
     wake_word: str
     language: str
-    gemini_voice: str = "Puck"
+    gemini_voice: str
     wake_word_threshold: float = 0.6
 
 

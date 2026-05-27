@@ -10,6 +10,10 @@ class SystemInfo(BaseCommand):
         return "get_system_status"
 
     @property
+    def tags(self) -> list[str]:
+        return ["system", "info"]
+
+    @property
     def description(self) -> str:
         return "Returns the current CPU and RAM usage of the host machine."
 

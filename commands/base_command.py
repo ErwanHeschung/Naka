@@ -25,6 +25,16 @@ class BaseCommand(ABC):
         """JSON Schema for the command parameters."""
         pass
 
+    @property
+    def tags(self) -> list[str]:
+        """Semantic tags used for context-based filtering.
+
+        Override in subclasses to declare which domains this command belongs to
+        (e.g. ["lights", "home"]).  Commands with no tags are always included,
+        regardless of the active filter.
+        """
+        return []
+
     @abstractmethod
     def execute(self, cmd_args: CommandArguments) -> str:
         pass

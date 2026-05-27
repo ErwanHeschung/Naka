@@ -32,7 +32,6 @@ class GeminiLiveEngine:
         self._setup_wake_word(cfg)
         self._setup_gemini(cfg)
         self._log_audio_devices()
-        self._session_config = self._build_session_config()
 
         log.info(f"GeminiLiveEngine ready | model={self._model_id}")
 
@@ -71,7 +70,12 @@ class GeminiLiveEngine:
             except Exception as e:
                 log.warning(f"Could not query {kind} device [{label}]: {e}")
 
-    def _build_session_config(self) -> types.LiveConnectConfig:
+    def _build_session_config(self, tags: list[str] | None = None) -> types.LiveConnectConfig:
+        """Build a fresh Gemini session config.
+
+        *tags* narrows which commands are exposed to the model for this session.
+        Pass ``None`` (default) to include every registered command.
+        """
         ai = app_config.ai
         system_prompt = (
             f"You are {ai.assistant.name}.\n\n"
@@ -79,7 +83,7 @@ class GeminiLiveEngine:
             f"Style: {ai.personality.style}\n\n"
             f"Instructions:\n{ai.personality.instructions}"
         )
-        declarations = self.registry.get_function_declarations()
+        declarations = self.registry.get_function_declarations(tags=tags)
         tools = [types.Tool(function_declarations=declarations)] if declarations else []
 
         return types.LiveConnectConfig(
@@ -223,8 +227,10 @@ class GeminiLiveEngine:
         muted               = asyncio.Event()   # set while speaker is playing
         audio_q: asyncio.Queue[bytes | None] = asyncio.Queue()
 
+        session_config = self._build_session_config()  # fresh config per session
+
         async with self._client.aio.live.connect(
-            model=self._model_id, config=self._session_config
+            model=self._model_id, config=session_config
         ) as session:
             log.info("Gemini Live session opened")
 

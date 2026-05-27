@@ -30,6 +30,10 @@ class Weather(BaseCommand):
         return "get_weather"
 
     @property
+    def tags(self) -> list[str]:
+        return ["info", "weather"]
+
+    @property
     def description(self) -> str:
         return "Gets the current weather for a given city or location."
 

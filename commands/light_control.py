@@ -11,6 +11,10 @@ class LightControl(BaseCommand):
         return "light_control"
 
     @property
+    def tags(self) -> list[str]:
+        return ["home", "lights"]
+
+    @property
     def description(self) -> str:
         return "Turn a smart light on or off in a specific room."
 
