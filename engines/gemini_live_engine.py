@@ -74,10 +74,10 @@ class GeminiLiveEngine:
     def _build_session_config(self) -> types.LiveConnectConfig:
         ai = app_config.ai
         system_prompt = (
-            f"You are {ai.assistant.name}. "
-            f"{ai.personality.role} "
-            f"Style: {ai.personality.style} "
-            f"Instructions: {ai.personality.instructions}"
+            f"You are {ai.assistant.name}.\n\n"
+            f"{ai.personality.role}\n\n"
+            f"Style: {ai.personality.style}\n\n"
+            f"Instructions:\n{ai.personality.instructions}"
         )
         declarations = self.registry.get_function_declarations()
         tools = [types.Tool(function_declarations=declarations)] if declarations else []
@@ -114,7 +114,14 @@ class GeminiLiveEngine:
                     log.info(f"Wake word '{self._wake_word_name}' detected (confidence={score:.2f})")
                     return
 
-    async def _send_audio(self, session, stop_event: asyncio.Event) -> None:
+    async def _send_audio(
+        self, session, stop_event: asyncio.Event, muted: asyncio.Event
+    ) -> None:
+        """Stream mic audio to Gemini.
+
+        Skips sending while *muted* is set (i.e. during playback) to prevent
+        the mic from picking up speaker output and triggering a barge-in.
+        """
         loop    = asyncio.get_running_loop()
         audio_q: asyncio.Queue[bytes] = asyncio.Queue()
 
@@ -132,6 +139,8 @@ class GeminiLiveEngine:
             while not stop_event.is_set():
                 try:
                     chunk = await asyncio.wait_for(audio_q.get(), timeout=0.5)
+                    if muted.is_set():
+                        continue  # discard — speaker is playing, avoid echo
                     await session.send_realtime_input(
                         audio=types.Blob(data=chunk, mime_type=f"audio/pcm;rate={SAMPLE_RATE_IN}")
                     )
@@ -158,12 +167,16 @@ class GeminiLiveEngine:
             log.info("Turn complete — listening for next command")
             turn_complete_event.set()
 
-    async def _play_audio(self, audio_q: asyncio.Queue) -> None:
+    async def _play_audio(self, audio_q: asyncio.Queue, muted: asyncio.Event) -> None:
         """Drains the audio queue into the output stream.
 
+        Sets *muted* while playing so _send_audio discards mic input and avoids
+        sending speaker output back to Gemini (barge-in / echo).
         Keeps playing until it receives the None sentinel, then lets
         sd.OutputStream.stop() flush the remaining PortAudio buffer before closing.
+        write() is offloaded to a thread executor to avoid blocking the event loop.
         """
+        loop = asyncio.get_running_loop()
         with sd.OutputStream(
             samplerate=SAMPLE_RATE_OUT,
             channels=1,
@@ -174,7 +187,11 @@ class GeminiLiveEngine:
                 chunk = await audio_q.get()
                 if chunk is None:
                     break
-                out_stream.write(np.frombuffer(chunk, dtype=np.int16))
+                muted.set()
+                await loop.run_in_executor(
+                    None, out_stream.write, np.frombuffer(chunk, dtype=np.int16)
+                )
+            muted.clear()
 
     async def _receive_responses(
         self, session, turn_complete_event: asyncio.Event, audio_q: asyncio.Queue
@@ -203,6 +220,7 @@ class GeminiLiveEngine:
     async def _handle_conversation(self) -> None:
         stop_event          = asyncio.Event()
         turn_complete_event = asyncio.Event()
+        muted               = asyncio.Event()   # set while speaker is playing
         audio_q: asyncio.Queue[bytes | None] = asyncio.Queue()
 
         async with self._client.aio.live.connect(
@@ -210,10 +228,10 @@ class GeminiLiveEngine:
         ) as session:
             log.info("Gemini Live session opened")
 
-            player_task = asyncio.create_task(self._play_audio(audio_q), name="play_audio")
+            player_task = asyncio.create_task(self._play_audio(audio_q, muted), name="play_audio")
 
             tasks = [
-                asyncio.create_task(self._send_audio(session, stop_event),                           name="send_audio"),
+                asyncio.create_task(self._send_audio(session, stop_event, muted),                   name="send_audio"),
                 asyncio.create_task(self._receive_responses(session, turn_complete_event, audio_q),   name="receive_responses"),
                 asyncio.create_task(self._watchdog(stop_event, turn_complete_event),                  name="watchdog"),
             ]
