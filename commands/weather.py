@@ -1,6 +1,7 @@
 import json
 import urllib.parse
 import urllib.request
+from datetime import date, timedelta
 from typing import Any
 
 from commands.base_command import BaseCommand, CommandArguments
@@ -23,6 +24,17 @@ def _fetch_json(url: str) -> dict:
         return json.loads(resp.read())
 
 
+def _day_label(iso_date: str) -> str:
+    """Turn '2026-05-28' into 'Today', 'Tomorrow', or 'Thursday 29 May'."""
+    d     = date.fromisoformat(iso_date)
+    today = date.today()
+    if d == today:
+        return "Today"
+    if d == today + timedelta(days=1):
+        return "Tomorrow"
+    return d.strftime("%A %-d %B")
+
+
 class Weather(BaseCommand):
 
     @property
@@ -35,7 +47,10 @@ class Weather(BaseCommand):
 
     @property
     def description(self) -> str:
-        return "Gets the current weather for a given city or location."
+        return (
+            "Gets the current weather or a multi-day forecast for a given city or location. "
+            "Use days=0 for current conditions, days=1–7 for a daily forecast."
+        )
 
     @property
     def parameters_schema(self) -> dict[str, Any]:
@@ -46,12 +61,25 @@ class Weather(BaseCommand):
                     "type": "string",
                     "description": "City name or location, e.g. 'Paris', 'Tokyo', 'New York'.",
                 },
+                "days": {
+                    "type": "integer",
+                    "description": (
+                        "Number of days to forecast. "
+                        "0 = current conditions (default), 1 = today only, "
+                        "2 = today + tomorrow, up to 7."
+                    ),
+                    "minimum": 0,
+                    "maximum": 7,
+                    "default": 0,
+                },
             },
             "required": ["location"],
         }
 
     def execute(self, cmd_args: CommandArguments) -> str:
         location = cmd_args.args.get("location", "").strip()
+        days     = int(cmd_args.args.get("days", 0))
+
         if not location:
             return "No location provided."
 
@@ -64,25 +92,63 @@ class Weather(BaseCommand):
             if not results:
                 return f"Location '{location}' not found."
 
-            place     = results[0]
-            lat, lon  = place["latitude"], place["longitude"]
-            city      = place.get("name", location)
-            country   = place.get("country", "")
+            place   = results[0]
+            lat     = place["latitude"]
+            lon     = place["longitude"]
+            city    = place.get("name", location)
+            country = place.get("country", "")
 
-            weather_url = (
-                "https://api.open-meteo.com/v1/forecast"
-                f"?latitude={lat}&longitude={lon}"
-                "&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m"
-            )
-            current   = _fetch_json(weather_url)["current"]
-            condition = _WMO_CODES.get(current["weather_code"], "unknown conditions")
-
-            return (
-                f"{city}, {country}: {condition}, "
-                f"{current['temperature_2m']}°C, "
-                f"wind {current['wind_speed_10m']} km/h, "
-                f"humidity {current['relative_humidity_2m']}%."
-            )
+            if days == 0:
+                return self._current(lat, lon, city, country)
+            return self._forecast(lat, lon, city, country, days)
 
         except Exception as e:
             return f"Could not fetch weather for '{location}': {e}"
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    def _current(self, lat: float, lon: float, city: str, country: str) -> str:
+        url = (
+            "https://api.open-meteo.com/v1/forecast"
+            f"?latitude={lat}&longitude={lon}"
+            "&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m"
+        )
+        current   = _fetch_json(url)["current"]
+        condition = _WMO_CODES.get(current["weather_code"], "unknown conditions")
+        return (
+            f"{city}, {country}: {condition}, "
+            f"{current['temperature_2m']}°C, "
+            f"wind {current['wind_speed_10m']} km/h, "
+            f"humidity {current['relative_humidity_2m']}%."
+        )
+
+    def _forecast(self, lat: float, lon: float, city: str, country: str, days: int) -> str:
+        url = (
+            "https://api.open-meteo.com/v1/forecast"
+            f"?latitude={lat}&longitude={lon}"
+            "&daily=temperature_2m_max,temperature_2m_min,weather_code,"
+            "wind_speed_10m_max,precipitation_sum"
+            f"&forecast_days={days}"
+            "&timezone=auto"
+        )
+        daily  = _fetch_json(url)["daily"]
+        dates  = daily["time"]
+        t_max  = daily["temperature_2m_max"]
+        t_min  = daily["temperature_2m_min"]
+        codes  = daily["weather_code"]
+        winds  = daily["wind_speed_10m_max"]
+        precip = daily["precipitation_sum"]
+
+        lines = [f"{city}, {country} — {days}-day forecast:"]
+        for i in range(len(dates)):
+            condition = _WMO_CODES.get(codes[i], "unknown")
+            label     = _day_label(dates[i])
+            lines.append(
+                f"{label}: {condition}, "
+                f"{t_min[i]}–{t_max[i]}°C, "
+                f"wind {winds[i]} km/h, "
+                f"precip {precip[i]} mm."
+            )
+        return "\n".join(lines)
