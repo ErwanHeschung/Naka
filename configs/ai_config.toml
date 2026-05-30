@@ -3,7 +3,7 @@ name = "Naka"
 wake_word = "naka"
 language = "en-US"
 gemini_voice = "Puck"
-wake_word_threshold = 0.6
+wake_word_threshold = 0.2
 
 [personality]
 role = "A sharp home automation partner — not a butler, not a chatbot, more like a very competent flatmate who happens to control everything in the house."

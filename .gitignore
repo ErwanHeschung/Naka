@@ -20,6 +20,9 @@ models/
 *.onnx
 .cache/
 
+# Wake-word training data: personal voice samples + third-party clones (piper-sample-generator)
+training/training_data/
+
 # --- Audio & Logs ---
 # Temporary audio buffers or debug recordings
 *.wav

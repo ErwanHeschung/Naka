@@ -3,6 +3,6 @@ model = "gemini-3.1-flash-live-preview"
 
 [audio]
 chunk_size = 1280
-inactivity_timeout = 15.0
+inactivity_timeout = 10.0
 # input_device  = 4   # uncomment to override OS default (uv run python -m sounddevice to list)
 # output_device = 5
