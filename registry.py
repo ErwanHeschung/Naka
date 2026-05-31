@@ -19,19 +19,30 @@ class CommandRegistry:
     def discover(self) -> None:
         """Auto-register all BaseCommand subclasses found in the commands package.
 
-        Scans every module in the ``commands/`` directory, imports it, and
-        registers any concrete subclass of BaseCommand it finds.  Adding a new
-        command is therefore just a matter of dropping a new file in the folder.
+        Walks the ``commands/`` package recursively (so commands may live in
+        sub-packages, e.g. ``commands/media/``), imports each module, and
+        registers any concrete subclass of BaseCommand it finds. Adding a new
+        command is therefore just a matter of dropping a new file in the tree.
         """
         found: list[str] = []
-        for _, module_name, _ in pkgutil.iter_modules(commands_pkg.__path__):
-            if module_name == "base_command":
+        seen: set[str] = set()
+        for _, module_name, _ in pkgutil.walk_packages(
+            commands_pkg.__path__, prefix=f"{commands_pkg.__name__}."
+        ):
+            if module_name.rsplit(".", 1)[-1] == "base_command":
                 continue
-            module = importlib.import_module(f"commands.{module_name}")
+            module = importlib.import_module(module_name)
             for _, cls in inspect.getmembers(module, inspect.isclass):
-                if issubclass(cls, BaseCommand) and cls is not BaseCommand:
-                    self.register(cls())
-                    found.append(cls.__name__)
+                if not (issubclass(cls, BaseCommand) and cls is not BaseCommand):
+                    continue
+                if inspect.isabstract(cls):
+                    continue
+                key = f"{cls.__module__}.{cls.__qualname__}"
+                if key in seen:   # same class re-exported across modules
+                    continue
+                seen.add(key)
+                self.register(cls())
+                found.append(cls.__name__)
         log.info(f"Commands discovered: {', '.join(sorted(found))}")
 
     def get_function_declarations(self, tags: list[str] | None = None) -> list[dict[str, Any]]:

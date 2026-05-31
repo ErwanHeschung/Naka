@@ -1,10 +1,9 @@
-import json
 import urllib.parse
-import urllib.request
 from datetime import date, timedelta
 from typing import Any
 
 from commands.base_command import BaseCommand, CommandArguments
+from utils import http_client as http
 
 _WMO_CODES: dict[int, str] = {
     0: "clear sky",
@@ -20,8 +19,9 @@ _WMO_CODES: dict[int, str] = {
 
 
 def _fetch_json(url: str) -> dict:
-    with urllib.request.urlopen(url, timeout=5) as resp:
-        return json.loads(resp.read())
+    resp = http.get(url, timeout=5)
+    resp.raise_for_status()
+    return resp.json()
 
 
 def _day_label(iso_date: str) -> str:
