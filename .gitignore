@@ -14,10 +14,11 @@ ENV/
 
 # --- AI Models & Data ---
 # If you download Whisper or Llama models locally, don't commit them
-models/
 *.bin
 *.gguf
 *.onnx
+# ...but keep the example wake-word model so the repo ships a working default
+!models/wakeword/naka.onnx
 .cache/
 
 # Wake-word training data: personal voice samples + third-party clones (piper-sample-generator)
